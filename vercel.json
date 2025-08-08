@@ -5,16 +5,10 @@
   "installCommand": "npm install",
   "framework": "vite",
   "outputDirectory": "dist",
-  "functions": {
-    "server/index.ts": {
-      "runtime": "nodejs18.x",
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/server/index.ts"
+      "destination": "/api/index"
     }
   ]
 }

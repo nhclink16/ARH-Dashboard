@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export function registerRoutes(app: Express): Server {
   // Export metrics data (must be before /api/metrics/:type)
   app.get("/api/metrics/export", async (req, res) => {
     try {
