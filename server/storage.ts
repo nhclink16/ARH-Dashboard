@@ -567,7 +567,5 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Use Supabase storage in production, fallback to in-memory for development
-export const storage = process.env.NODE_ENV === 'development' 
-  ? new MemStorage()
-  : new SupabaseStorage();
+// Always use Supabase storage now that we have it set up
+export const storage = new SupabaseStorage();
