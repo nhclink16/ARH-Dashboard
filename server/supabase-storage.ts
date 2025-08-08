@@ -16,17 +16,16 @@ export class SupabaseStorage implements IStorage {
   private async initializeDefaultData() {
     try {
       // Check if we already have data
-      const { data: existingMetrics, error } = await this.supabase
+      const { count, error } = await this.supabase
         .from('metrics')
-        .select('count(*)', { count: 'exact' });
+        .select('*', { count: 'exact', head: true });
 
       if (error) {
         console.error('Error checking existing data:', error);
         return;
       }
 
-      const count = existingMetrics?.[0]?.count || 0;
-      if (count > 0) {
+      if (count && count > 0) {
         console.log(`Found ${count} existing metrics, skipping initialization`);
         return;
       }

@@ -1,4 +1,6 @@
 import { type User, type InsertUser, type Metric, type InsertMetric, type VacancyDistribution, type InsertVacancyDistribution } from "@shared/schema";
+
+export type { User, InsertUser, Metric, InsertMetric, VacancyDistribution, InsertVacancyDistribution };
 import { randomUUID } from "crypto";
 import { buildiumClient } from "./buildium-api";
 import { SupabaseStorage } from "./supabase-storage";
