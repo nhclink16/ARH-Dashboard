@@ -271,18 +271,116 @@ export class SupabaseStorage implements IStorage {
   // All the Buildium refresh methods remain the same since they use the Buildium client
   async refreshOccupancyFromBuildium(): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
-      // This would integrate with the Buildium API client
-      // For now, simulate a successful refresh
-      return { success: true, data: { message: 'Occupancy data refreshed' } };
+      console.log('🏠 Refreshing occupancy data from Buildium...');
+      
+      // Get real occupancy rates from Buildium
+      const occupancyData = await buildiumClient.calculateOccupancyRates();
+      
+      console.log('📊 Buildium occupancy data:', occupancyData);
+      
+      // Update the occupancy rate metrics in database
+      const updates = [
+        {
+          metricType: 'occupancy_rate',
+          propertyType: 'total',
+          value: occupancyData.total,
+          stringValue: `${occupancyData.total}%`
+        },
+        {
+          metricType: 'occupancy_rate',
+          propertyType: 'sfr',
+          value: occupancyData.sfr,
+          stringValue: `${occupancyData.sfr}%`
+        },
+        {
+          metricType: 'occupancy_rate',
+          propertyType: 'mf',
+          value: occupancyData.mf,
+          stringValue: `${occupancyData.mf}%`
+        }
+      ];
+
+      // Update each metric in the database
+      for (const update of updates) {
+        await this.updateMetric(
+          update.metricType,
+          update.propertyType,
+          update.value,
+          update.stringValue
+        );
+        console.log(`✓ Updated ${update.metricType} ${update.propertyType}: ${update.stringValue}`);
+      }
+
+      return { 
+        success: true, 
+        data: { 
+          message: `Occupancy rates updated from Buildium: ${occupancyData.total}% total, ${occupancyData.sfr}% SFR, ${occupancyData.mf}% MF`,
+          occupancy: occupancyData
+        } 
+      };
     } catch (error) {
+      console.error('❌ Error refreshing occupancy from Buildium:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 
   async refreshRentMetricsFromBuildium(): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
-      return { success: true, data: { message: 'Rent metrics refreshed' } };
+      console.log('💰 Refreshing rent metrics from Buildium...');
+      
+      // Get real rent metrics from Buildium
+      const rentData = await buildiumClient.calculateRentMetrics();
+      
+      console.log('📊 Buildium rent data:', rentData);
+      
+      // Update rent metrics in database
+      const updates = [
+        {
+          metricType: 'total_rent_roll',
+          propertyType: 'total',
+          value: rentData.totalRentRoll,
+          stringValue: `$${rentData.totalRentRoll.toLocaleString()}`
+        },
+        {
+          metricType: 'average_rent',
+          propertyType: 'total',
+          value: rentData.averageRent.total,
+          stringValue: `$${rentData.averageRent.total.toLocaleString()}`
+        },
+        {
+          metricType: 'average_rent',
+          propertyType: 'sfr',
+          value: rentData.averageRent.sfr,
+          stringValue: `$${rentData.averageRent.sfr.toLocaleString()}`
+        },
+        {
+          metricType: 'average_rent',
+          propertyType: 'mf',
+          value: rentData.averageRent.mf,
+          stringValue: `$${rentData.averageRent.mf.toLocaleString()}`
+        }
+      ];
+
+      // Update each metric in the database
+      for (const update of updates) {
+        await this.updateMetric(
+          update.metricType,
+          update.propertyType,
+          update.value,
+          update.stringValue
+        );
+        console.log(`✓ Updated ${update.metricType} ${update.propertyType}: ${update.stringValue}`);
+      }
+
+      return { 
+        success: true, 
+        data: { 
+          message: `Rent metrics updated from Buildium: $${rentData.totalRentRoll.toLocaleString()} total rent roll, $${rentData.averageRent.total} avg rent`,
+          rentMetrics: rentData
+        } 
+      };
     } catch (error) {
+      console.error('❌ Error refreshing rent metrics from Buildium:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }

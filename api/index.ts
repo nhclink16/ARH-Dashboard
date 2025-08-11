@@ -5,25 +5,14 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Try both VITE_ prefixed (from Vercel) and non-prefixed versions
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
-console.log('Environment check:', {
-  hasViteUrl: !!process.env.VITE_SUPABASE_URL,
-  hasUrl: !!process.env.SUPABASE_URL,
-  hasViteKey: !!process.env.VITE_SUPABASE_ANON_KEY,
-  hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-  hasAnonKey: !!process.env.SUPABASE_ANON_KEY,
-  finalUrl: supabaseUrl,
-  finalKeyLength: supabaseServiceKey?.length
-});
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('Missing Supabase environment variables:', { 
     hasUrl: !!supabaseUrl, 
-    hasKey: !!supabaseServiceKey,
-    availableEnvs: Object.keys(process.env).filter(key => key.includes('SUPABASE'))
+    hasKey: !!supabaseServiceKey 
   });
   throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required');
 }
