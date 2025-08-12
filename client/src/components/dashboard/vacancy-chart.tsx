@@ -3,10 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { PropertyType } from "@/lib/types";
 import { VacancyDistribution } from "@shared/schema";
-import { TrendingUp, RotateCcw } from "lucide-react";
+import { TrendingUp, RotateCcw, Building2, Home } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -70,11 +70,7 @@ export default function VacancyChart({ activeFilter }: VacancyChartProps) {
   }
 
   const getChartData = (propertyType: PropertyType) => {
-    // Map property type for data filtering - 'total' maps to 'all' in our Buildium data
-    const filterType = propertyType === 'total' ? 'all' : propertyType;
-    const filteredData = vacancyData.filter(item => item.propertyType === filterType);
-    
-    // Map our Buildium API data structure to chart format
+    // Get data for both SF and MF to show in combined chart
     const chartLabels = [
       { key: '0-30 days', label: '0-30 days' },
       { key: '31-60 days', label: '31-60 days' },
@@ -82,26 +78,64 @@ export default function VacancyChart({ activeFilter }: VacancyChartProps) {
       { key: '90+ days', label: '90+ days' }
     ];
 
-    return chartLabels.map(({ key, label }) => {
-      const item = filteredData.find(d => d.daysRange === key);
-      return {
-        name: label,
-        count: item?.count || 0
-      };
-    });
+    if (propertyType === 'total') {
+      // Show both SF and MF in the same chart with different colors
+      const sfrData = vacancyData.filter(item => item.propertyType === 'sfr');
+      const mfData = vacancyData.filter(item => item.propertyType === 'mf');
+      
+      return chartLabels.map(({ key, label }) => {
+        const sfrItem = sfrData.find(d => d.daysRange === key);
+        const mfItem = mfData.find(d => d.daysRange === key);
+        return {
+          name: label,
+          SF: sfrItem?.count || 0,
+          MF: mfItem?.count || 0,
+          Total: (sfrItem?.count || 0) + (mfItem?.count || 0)
+        };
+      });
+    } else {
+      // Show single property type
+      const filterType = propertyType === 'total' ? 'all' : propertyType;
+      const filteredData = vacancyData.filter(item => item.propertyType === filterType);
+      
+      return chartLabels.map(({ key, label }) => {
+        const item = filteredData.find(d => d.daysRange === key);
+        return {
+          name: label,
+          count: item?.count || 0
+        };
+      });
+    }
   };
 
   const getSummaryData = (propertyType: PropertyType) => {
-    // Map property type for data filtering - 'total' maps to 'all' in our Buildium data
-    const filterType = propertyType === 'total' ? 'all' : propertyType;
-    const filteredData = vacancyData.filter(item => item.propertyType === filterType);
-    
-    return {
-      days0to30: filteredData.find(d => d.daysRange === '0-30 days')?.count || 0,
-      days31to60: filteredData.find(d => d.daysRange === '31-60 days')?.count || 0,
-      days61to90: filteredData.find(d => d.daysRange === '61-90 days')?.count || 0,
-      days90plus: filteredData.find(d => d.daysRange === '90+ days')?.count || 0,
-    };
+    if (propertyType === 'total') {
+      // Combine SF and MF data for total view
+      const sfrData = vacancyData.filter(item => item.propertyType === 'sfr');
+      const mfData = vacancyData.filter(item => item.propertyType === 'mf');
+      
+      return {
+        days0to30: (sfrData.find(d => d.daysRange === '0-30 days')?.count || 0) + 
+                   (mfData.find(d => d.daysRange === '0-30 days')?.count || 0),
+        days31to60: (sfrData.find(d => d.daysRange === '31-60 days')?.count || 0) + 
+                    (mfData.find(d => d.daysRange === '31-60 days')?.count || 0),
+        days61to90: (sfrData.find(d => d.daysRange === '61-90 days')?.count || 0) + 
+                    (mfData.find(d => d.daysRange === '61-90 days')?.count || 0),
+        days90plus: (sfrData.find(d => d.daysRange === '90+ days')?.count || 0) + 
+                    (mfData.find(d => d.daysRange === '90+ days')?.count || 0),
+      };
+    } else {
+      // Single property type
+      const filterType = propertyType === 'total' ? 'all' : propertyType;
+      const filteredData = vacancyData.filter(item => item.propertyType === filterType);
+      
+      return {
+        days0to30: filteredData.find(d => d.daysRange === '0-30 days')?.count || 0,
+        days31to60: filteredData.find(d => d.daysRange === '31-60 days')?.count || 0,
+        days61to90: filteredData.find(d => d.daysRange === '61-90 days')?.count || 0,
+        days90plus: filteredData.find(d => d.daysRange === '90+ days')?.count || 0,
+      };
+    }
   };
 
   const chartData = getChartData(chartFilter);
@@ -163,11 +197,47 @@ export default function VacancyChart({ activeFilter }: VacancyChartProps) {
               tickLine={false}
               axisLine={false}
             />
-            <Bar 
-              dataKey="count" 
-              fill="var(--augusta-primary)"
-              radius={[4, 4, 0, 0]}
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px'
+              }}
             />
+            {chartFilter === 'total' ? (
+              <>
+                <Legend 
+                  verticalAlign="top" 
+                  height={36}
+                  iconType="rect"
+                  formatter={(value: string) => {
+                    if (value === 'SF') return 'Single-Family';
+                    if (value === 'MF') return 'Multi-Family';
+                    return value;
+                  }}
+                />
+                <Bar 
+                  dataKey="SF" 
+                  fill="#10b981"
+                  stackId="a"
+                  radius={[0, 0, 0, 0]}
+                  name="SF"
+                />
+                <Bar 
+                  dataKey="MF" 
+                  fill="#3b82f6"
+                  stackId="a"
+                  radius={[4, 4, 0, 0]}
+                  name="MF"
+                />
+              </>
+            ) : (
+              <Bar 
+                dataKey="count" 
+                fill={chartFilter === 'sfr' ? '#10b981' : '#3b82f6'}
+                radius={[4, 4, 0, 0]}
+              />
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>
