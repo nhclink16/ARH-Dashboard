@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
+import { rentRollQueries } from "./rent-roll-queries";
 
 export function registerRoutes(app: Express): Server {
   // Export metrics data (must be before /api/metrics/:type)
@@ -458,6 +459,47 @@ export function registerRoutes(app: Express): Server {
   });
 
 
+
+  // NEW: Get operational metrics from database (fast)
+  app.get("/api/metrics/operational/database", async (req, res) => {
+    try {
+      console.log('Fetching operational metrics from database...');
+      const metrics = await rentRollQueries.getAllOperationalMetrics();
+      res.json({
+        success: true,
+        source: 'database',
+        data: metrics,
+        lastUpdated: metrics.lastUpdate
+      });
+    } catch (error) {
+      console.error('Error fetching database metrics:', error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch metrics from database",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // NEW: Refresh database from CSV upload
+  app.post("/api/database/import-csv", async (req, res) => {
+    try {
+      // This endpoint would handle CSV file upload and import
+      // For now, return instructions
+      res.json({
+        message: "CSV import endpoint - use Supabase dashboard to import Rent_Roll.csv",
+        instructions: [
+          "1. Export Rent Roll from Buildium",
+          "2. Go to Supabase Table Editor",
+          "3. Select rent_roll table",
+          "4. Click Import CSV",
+          "5. Upload the file"
+        ]
+      });
+    } catch (error) {
+      res.status(500).json({ error: "CSV import failed" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

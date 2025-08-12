@@ -3,7 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 import { buildiumClient } from "./buildium-api";
 
 const supabaseUrl = process.env.SUPABASE_URL || 'https://zkkxcqdkctueopixutsf.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpra3hjcWRrY3R1ZW9waXh1dHNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNzc5ODgsImV4cCI6MjA2Mzk1Mzk4OH0.VVDpqTduvJbY8Om_OM9RnGIYiN_Cw-YE2m-hdbOu3vE';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseServiceKey) {
+  console.error('❌ SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY environment variable must be set');
+  console.error('Set with: export SUPABASE_SERVICE_ROLE_KEY=your_new_key_here');
+  throw new Error('Missing Supabase credentials');
+}
 
 export class SupabaseStorage implements IStorage {
   private supabase = createClient(supabaseUrl, supabaseServiceKey);

@@ -16,6 +16,14 @@ server/public/
 .env.production
 .env.staging
 
+# Security - never commit keys or secrets
+*.key
+*.pem
+*secret*
+*password*
+*token*
+.secrets
+
 # IDE files
 .vscode/
 .idea/
