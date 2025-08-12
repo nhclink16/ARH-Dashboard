@@ -58,13 +58,13 @@ export class RentRollQueries {
   
   // 1. OCCUPANCY METRICS
   async getOccupancyMetrics(): Promise<OccupancyMetrics> {
-    // Direct query to rent_roll - no RPC function needed
-    const { data, error } = await supabase
+    // Get property counts to determine SF vs MF
+    const { data: propertyData, error: propertyError } = await supabase
       .from('rent_roll')
-      .select('Residents, PropertyName');
+      .select('PropertyName, Residents');
     
-    if (!data || error) {
-      console.error('Error fetching occupancy metrics:', error);
+    if (!propertyData || propertyError) {
+      console.error('Error fetching occupancy metrics:', propertyError);
       return {
         total: 0, sfr: 0, mf: 0,
         totalUnits: 0, occupiedUnits: 0,
@@ -73,33 +73,42 @@ export class RentRollQueries {
       };
     }
 
-    // Define SF properties (townhomes and small properties)
-    const sfProperties = [
-      'Windsor Heights Townhomes',
-      'Court Yard at Rocky Creek',
-      'Chalet North Court', 
-      'Petersburg Townhomes',
-      'Kelly Drive Townhomes'
-    ];
+    // Group by property to identify SF (1 unit) vs MF (multiple units)
+    const propertyGroups = propertyData.reduce((acc: any, unit) => {
+      if (!acc[unit.PropertyName]) {
+        acc[unit.PropertyName] = { units: 0, occupied: 0 };
+      }
+      acc[unit.PropertyName].units++;
+      if (unit.Residents !== 'VACANT') {
+        acc[unit.PropertyName].occupied++;
+      }
+      return acc;
+    }, {});
 
-    const total = data.length;
-    const occupied = data.filter(r => r.Residents !== 'VACANT').length;
+    // Separate SF (properties with 1 unit) from MF (properties with multiple units)
+    let sfrUnits = 0, sfrOccupied = 0, mfUnits = 0, mfOccupied = 0;
     
-    // Filter by property name for SF vs MF
-    const sfrData = data.filter(r => sfProperties.includes(r.PropertyName));
-    const mfData = data.filter(r => !sfProperties.includes(r.PropertyName));
-    
-    const sfrUnits = sfrData.length;
-    const sfrOccupied = sfrData.filter(r => r.Residents !== 'VACANT').length;
-    const mfUnits = mfData.length;
-    const mfOccupied = mfData.filter(r => r.Residents !== 'VACANT').length;
+    Object.values(propertyGroups).forEach((property: any) => {
+      if (property.units === 1) {
+        // Single-family property
+        sfrUnits += property.units;
+        sfrOccupied += property.occupied;
+      } else {
+        // Multi-family property
+        mfUnits += property.units;
+        mfOccupied += property.occupied;
+      }
+    });
+
+    const totalUnits = sfrUnits + mfUnits;
+    const occupiedUnits = sfrOccupied + mfOccupied;
     
     return {
-      total: total > 0 ? (occupied / total) * 100 : 0,
+      total: totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0,
       sfr: sfrUnits > 0 ? (sfrOccupied / sfrUnits) * 100 : 0,
       mf: mfUnits > 0 ? (mfOccupied / mfUnits) * 100 : 0,
-      totalUnits: total,
-      occupiedUnits: occupied,
+      totalUnits,
+      occupiedUnits,
       sfrUnits,
       sfrOccupied,
       mfUnits,
@@ -107,7 +116,7 @@ export class RentRollQueries {
     };
   }
 
-  // 2. RENT METRICS
+  // 2. RENT METRICS  
   async getRentMetrics(): Promise<RentMetrics> {
     const { data, error } = await supabase
       .from('rent_roll')
@@ -123,35 +132,40 @@ export class RentRollQueries {
       };
     }
 
-    // Define SF properties
-    const sfProperties = [
-      'Windsor Heights Townhomes',
-      'Court Yard at Rocky Creek',
-      'Chalet North Court', 
-      'Petersburg Townhomes',
-      'Kelly Drive Townhomes'
-    ];
-    
-    const totalRentRoll = data.reduce((sum, r) => sum + (r.rent || 0), 0);
-    const avgTotal = data.length > 0 ? totalRentRoll / data.length : 0;
-    
-    const sfrData = data.filter(r => sfProperties.includes(r.PropertyName));
-    const mfData = data.filter(r => !sfProperties.includes(r.PropertyName));
-    
-    const avgSfr = sfrData.length > 0 
-      ? sfrData.reduce((sum, r) => sum + r.rent, 0) / sfrData.length 
-      : 0;
+    // Group by property to identify SF vs MF
+    const propertyGroups: { [key: string]: any[] } = {};
+    data.forEach(unit => {
+      if (!propertyGroups[unit.PropertyName]) {
+        propertyGroups[unit.PropertyName] = [];
+      }
+      propertyGroups[unit.PropertyName].push(unit);
+    });
+
+    let totalRentRoll = 0;
+    let sfrRentTotal = 0, sfrCount = 0;
+    let mfRentTotal = 0, mfCount = 0;
+
+    Object.entries(propertyGroups).forEach(([propertyName, units]) => {
+      const propertyRentTotal = units.reduce((sum, u) => sum + (u.rent || 0), 0);
+      totalRentRoll += propertyRentTotal;
       
-    const avgMf = mfData.length > 0
-      ? mfData.reduce((sum, r) => sum + r.rent, 0) / mfData.length
-      : 0;
+      if (units.length === 1) {
+        // Single-family property
+        sfrRentTotal += propertyRentTotal;
+        sfrCount += units.length;
+      } else {
+        // Multi-family property
+        mfRentTotal += propertyRentTotal;
+        mfCount += units.length;
+      }
+    });
     
     return {
       totalRentRoll: Math.round(totalRentRoll),
       averageRent: {
-        total: Math.round(avgTotal),
-        sfr: Math.round(avgSfr),
-        mf: Math.round(avgMf)
+        total: Math.round(data.length > 0 ? totalRentRoll / data.length : 0),
+        sfr: Math.round(sfrCount > 0 ? sfrRentTotal / sfrCount : 0),
+        mf: Math.round(mfCount > 0 ? mfRentTotal / mfCount : 0)
       }
     };
   }
