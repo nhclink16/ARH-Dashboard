@@ -207,6 +207,16 @@ export default function MetricsOverviewEnhanced({ activeFilter }: MetricsOvervie
     },
   });
 
+  // Fetch sparkline data (12 months)
+  const { data: sparklineData } = useQuery({
+    queryKey: ['sparklines', activeFilter],
+    queryFn: async () => {
+      const response = await fetch(`/api/metrics/sparklines?filter=${activeFilter}`);
+      if (!response.ok) return null;
+      return response.json();
+    },
+  });
+
   // Calculate trends from historical data
   const calculateTrend = (current: number, metricType: string): TrendData | undefined => {
     if (!historicalData || !current) return undefined;
@@ -329,9 +339,21 @@ export default function MetricsOverviewEnhanced({ activeFilter }: MetricsOvervie
     googleReviews: "Public reputation score\nHigher ratings attract tenants",
   };
 
-  // Generate mock sparkline data
-  const generateSparkline = () => {
-    return Array.from({ length: 7 }, () => Math.random() * 100);
+  // Get sparkline data for specific metrics
+  const getSparklineData = (metricType: 'occupancy' | 'avgRent' | 'rentRoll' | 'daysOnMarket'): number[] => {
+    if (!sparklineData || sparklineData.length === 0) {
+      return []; // Return empty array instead of mock data
+    }
+    
+    return sparklineData.map((point: any) => {
+      switch (metricType) {
+        case 'occupancy': return point.occupancy || 0;
+        case 'avgRent': return point.avgRent || 0;
+        case 'rentRoll': return point.rentRoll ? point.rentRoll / 1000 : 0; // Convert to K
+        case 'daysOnMarket': return point.daysOnMarket || 0;
+        default: return 0;
+      }
+    });
   };
 
   return (
@@ -376,7 +398,7 @@ export default function MetricsOverviewEnhanced({ activeFilter }: MetricsOvervie
           tooltip={tooltips.occupancy}
           color="green"
           trend={calculateTrend(filteredData?.occupancy || 0, 'occupancy')}
-          sparkline={generateSparkline()}
+          sparkline={getSparklineData('occupancy')}
         />
 
         {/* Average Rent */}
@@ -389,7 +411,7 @@ export default function MetricsOverviewEnhanced({ activeFilter }: MetricsOvervie
           tooltip={tooltips.avgRent}
           color="blue"
           trend={calculateTrend(filteredData?.avgRent || 0, 'avgRent')}
-          sparkline={generateSparkline()}
+          sparkline={getSparklineData('avgRent')}
         />
 
         {/* Total Rent Roll */}
@@ -402,7 +424,7 @@ export default function MetricsOverviewEnhanced({ activeFilter }: MetricsOvervie
           tooltip={tooltips.rentRoll}
           color="purple"
           trend={calculateTrend(metrics?.rent?.totalRentRoll || 0, 'rentRoll')}
-          sparkline={generateSparkline()}
+          sparkline={getSparklineData('rentRoll')}
         />
 
         {/* Days on Market */}
@@ -415,7 +437,7 @@ export default function MetricsOverviewEnhanced({ activeFilter }: MetricsOvervie
           tooltip={tooltips.avgDaysOnMarket}
           color="orange"
           trend={calculateTrend(metrics?.avgDaysOnMarket || 0, 'daysOnMarket')}
-          sparkline={generateSparkline()}
+          sparkline={getSparklineData('daysOnMarket')}
         />
       </div>
 

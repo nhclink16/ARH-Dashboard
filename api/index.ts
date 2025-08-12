@@ -110,6 +110,40 @@ app.get("/api/metrics/operational/database", async (req, res) => {
   }
 });
 
+// Get historical metrics for trend analysis
+app.get("/api/metrics/historical", async (req, res) => {
+  try {
+    const filter = (req.query.filter as 'total' | 'sfr' | 'mf') || 'total';
+    console.log(`Fetching historical metrics with filter: ${filter}`);
+    const trends = await rentRollQueries.getHistoricalTrends(filter);
+    res.json(trends);
+  } catch (error) {
+    console.error('Error fetching historical metrics:', error);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to fetch historical metrics",
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get sparkline data for charts
+app.get("/api/metrics/sparklines", async (req, res) => {
+  try {
+    const filter = (req.query.filter as 'total' | 'sfr' | 'mf') || 'total';
+    console.log(`Fetching sparkline data with filter: ${filter}`);
+    const data = await rentRollQueries.getSparklineData(filter);
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching sparkline data:', error);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to fetch sparkline data",
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Refresh all metrics (placeholder)
 app.post("/api/metrics/refresh", async (req, res) => {
   try {

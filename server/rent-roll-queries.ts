@@ -257,7 +257,35 @@ export class RentRollQueries {
     return data?.import_date || new Date().toISOString();
   }
 
-  // 11. GET HISTORICAL TRENDS
+  // 11. GET SPARKLINE DATA (12 months)
+  async getSparklineData(filter: 'total' | 'sfr' | 'mf' = 'total') {
+    try {
+      const { data, error } = await supabase
+        .from('historical_metrics')
+        .select('date, occupancy_rate, average_rent, total_rent_roll, avg_days_on_market')
+        .eq('property_type', filter)
+        .gte('date', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+        .order('date', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching sparkline data:', error);
+        return [];
+      }
+      
+      return (data || []).map(row => ({
+        date: row.date,
+        occupancy: parseFloat(row.occupancy_rate || '0'),
+        avgRent: parseFloat(row.average_rent || '0'),
+        rentRoll: parseFloat(row.total_rent_roll || '0'),
+        daysOnMarket: row.avg_days_on_market || 0
+      }));
+    } catch (error) {
+      console.error('Error fetching sparkline data:', error);
+      return [];
+    }
+  }
+
+  // 12. GET HISTORICAL TRENDS
   async getHistoricalTrends(filter: 'total' | 'sfr' | 'mf' = 'total') {
     try {
       // Get metrics from 1 year ago
