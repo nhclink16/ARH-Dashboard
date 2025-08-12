@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { createClient } from '@supabase/supabase-js';
+import { rentRollQueries } from '../server/rent-roll-queries.js';
 
 const app = express();
 app.use(express.json());
@@ -84,6 +85,27 @@ app.get("/api/vacancy-distribution", async (req, res) => {
   } catch (error) {
     console.error('Error fetching vacancy distribution:', error);
     res.status(500).json({ error: "Failed to fetch vacancy distribution" });
+  }
+});
+
+// Get operational metrics from database (fast)
+app.get("/api/metrics/operational/database", async (req, res) => {
+  try {
+    console.log('Fetching operational metrics from database...');
+    const metrics = await rentRollQueries.getAllOperationalMetrics();
+    res.json({
+      success: true,
+      source: 'database',
+      data: metrics,
+      lastUpdated: metrics.lastUpdate
+    });
+  } catch (error) {
+    console.error('Error fetching database metrics:', error);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to fetch metrics from database",
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 
