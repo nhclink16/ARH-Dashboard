@@ -257,8 +257,92 @@ export class RentRollQueries {
     return data?.import_date || new Date().toISOString();
   }
 
-  // MASTER FUNCTION: Get all metrics at once
-  async getAllOperationalMetrics() {
+  // 11. GET HISTORICAL TRENDS
+  async getHistoricalTrends(filter: 'total' | 'sfr' | 'mf' = 'total') {
+    try {
+      // Get metrics from 1 year ago
+      const lastYearDate = new Date();
+      lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
+      
+      // Get metrics from 1 month ago
+      const lastMonthDate = new Date();
+      lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+      
+      const { data: lastYearData } = await supabase
+        .from('historical_metrics')
+        .select('*')
+        .eq('property_type', filter)
+        .gte('date', lastYearDate.toISOString().split('T')[0])
+        .lte('date', new Date(lastYearDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+        .order('date', { ascending: false })
+        .limit(1)
+        .single();
+      
+      const { data: lastMonthData } = await supabase
+        .from('historical_metrics')
+        .select('*')
+        .eq('property_type', filter)
+        .gte('date', lastMonthDate.toISOString().split('T')[0])
+        .lte('date', new Date(lastMonthDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+        .order('date', { ascending: false })
+        .limit(1)
+        .single();
+      
+      return {
+        occupancy: {
+          lastYear: lastYearData?.occupancy_rate || null,
+          lastMonth: lastMonthData?.occupancy_rate || null
+        },
+        avgRent: {
+          lastYear: lastYearData?.average_rent || null,
+          lastMonth: lastMonthData?.average_rent || null
+        },
+        rentRoll: {
+          lastYear: lastYearData?.total_rent_roll || null,
+          lastMonth: lastMonthData?.total_rent_roll || null
+        },
+        daysOnMarket: {
+          lastYear: lastYearData?.avg_days_on_market || null,
+          lastMonth: lastMonthData?.avg_days_on_market || null
+        },
+        monthToMonth: {
+          lastYear: lastYearData?.month_to_month_percentage || null,
+          lastMonth: lastMonthData?.month_to_month_percentage || null
+        },
+        terminations: {
+          lastYear: lastYearData?.early_terminations_rate || null,
+          lastMonth: lastMonthData?.early_terminations_rate || null
+        },
+        avgTerm: {
+          lastYear: lastYearData?.avg_occupancy_term || null,
+          lastMonth: lastMonthData?.avg_occupancy_term || null
+        },
+        newLeases: {
+          lastYear: lastYearData?.leases_signed_this_month || null,
+          lastMonth: lastMonthData?.leases_signed_this_month || null
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching historical trends:', error);
+      // Return null values if no historical data
+      return {
+        occupancy: { lastYear: null, lastMonth: null },
+        avgRent: { lastYear: null, lastMonth: null },
+        rentRoll: { lastYear: null, lastMonth: null },
+        daysOnMarket: { lastYear: null, lastMonth: null },
+        monthToMonth: { lastYear: null, lastMonth: null },
+        terminations: { lastYear: null, lastMonth: null },
+        avgTerm: { lastYear: null, lastMonth: null },
+        newLeases: { lastYear: null, lastMonth: null }
+      };
+    }
+  }
+
+  // MASTER FUNCTION: Get all metrics at once with optional filtering
+  async getAllOperationalMetrics(filter: 'total' | 'sfr' | 'mf' = 'total') {
+    // For property-specific queries, we need to add WHERE clauses
+    const buildingTypeFilter = filter === 'sfr' ? 1 : filter === 'mf' ? 2 : null;
+    
     const [
       occupancy,
       rent,
@@ -294,7 +378,8 @@ export class RentRollQueries {
       avgDaysOnMarket: daysOnMarket,
       vacancyDistribution: vacancyDist,
       lastUpdate,
-      googleReviews: { rating: 0, count: 0 } // External API needed
+      googleReviews: { rating: 0, count: 0 }, // External API needed
+      filter // Include the filter in the response
     };
   }
 }

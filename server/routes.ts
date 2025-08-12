@@ -460,11 +460,12 @@ export function registerRoutes(app: Express): Server {
 
 
 
-  // NEW: Get operational metrics from database (fast)
+  // NEW: Get operational metrics from database (fast) with filtering
   app.get("/api/metrics/operational/database", async (req, res) => {
     try {
-      console.log('Fetching operational metrics from database...');
-      const metrics = await rentRollQueries.getAllOperationalMetrics();
+      const filter = (req.query.filter as 'total' | 'sfr' | 'mf') || 'total';
+      console.log(`Fetching operational metrics from database with filter: ${filter}`);
+      const metrics = await rentRollQueries.getAllOperationalMetrics(filter);
       res.json({
         success: true,
         source: 'database',
@@ -476,6 +477,23 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ 
         success: false,
         error: "Failed to fetch metrics from database",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // NEW: Get historical metrics for trend analysis
+  app.get("/api/metrics/historical", async (req, res) => {
+    try {
+      const filter = (req.query.filter as 'total' | 'sfr' | 'mf') || 'total';
+      console.log(`Fetching historical metrics with filter: ${filter}`);
+      const trends = await rentRollQueries.getHistoricalTrends(filter);
+      res.json(trends);
+    } catch (error) {
+      console.error('Error fetching historical metrics:', error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch historical metrics",
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

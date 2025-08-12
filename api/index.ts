@@ -88,11 +88,12 @@ app.get("/api/vacancy-distribution", async (req, res) => {
   }
 });
 
-// Get operational metrics from database (fast)
+// Get operational metrics from database (fast) with filtering
 app.get("/api/metrics/operational/database", async (req, res) => {
   try {
-    console.log('Fetching operational metrics from database...');
-    const metrics = await rentRollQueries.getAllOperationalMetrics();
+    const filter = (req.query.filter as 'total' | 'sfr' | 'mf') || 'total';
+    console.log(`Fetching operational metrics from database with filter: ${filter}`);
+    const metrics = await rentRollQueries.getAllOperationalMetrics(filter);
     res.json({
       success: true,
       source: 'database',

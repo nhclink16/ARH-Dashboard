@@ -1,7 +1,7 @@
 import { useState } from "react";
 import FilterTabs from "@/components/dashboard/filter-tabs";
-// Use the new database-powered component
-import MetricsOverviewDB from "@/components/dashboard/metrics-overview-db";
+// Use the enhanced database-powered component
+import MetricsOverviewEnhanced from "@/components/dashboard/metrics-overview-enhanced";
 import VacancyChart from "@/components/dashboard/vacancy-chart";
 import IntegrationsStatus from "@/components/dashboard/integrations-status";
 import { PropertyType } from "@/lib/types";
@@ -17,7 +17,7 @@ export default function OperationalDashboard() {
       </div>
       
       <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
-      <MetricsOverviewDB />
+      <MetricsOverviewEnhanced activeFilter={activeFilter} />
       <VacancyChart activeFilter={activeFilter} />
       <IntegrationsStatus />
     </div>
