@@ -58,42 +58,52 @@ export class RentRollQueries {
   
   // 1. OCCUPANCY METRICS
   async getOccupancyMetrics(): Promise<OccupancyMetrics> {
-    const { data, error } = await supabase.rpc('get_occupancy_metrics');
+    // Direct query to rent_roll - no RPC function needed
+    const { data, error } = await supabase
+      .from('rent_roll')
+      .select('Residents, PropertyName');
     
-    if (error) {
+    if (!data || error) {
       console.error('Error fetching occupancy metrics:', error);
-      // Fallback to direct query
-      const { data: fallback } = await supabase
-        .from('rent_roll')
-        .select('Residents, BuildingTypeId');
-      
-      if (fallback) {
-        const total = fallback.length;
-        const occupied = fallback.filter(r => r.Residents !== 'VACANT').length;
-        const sfr = fallback.filter(r => r.BuildingTypeId === 1).length;
-        const sfrOccupied = fallback.filter(r => r.BuildingTypeId === 1 && r.Residents !== 'VACANT').length;
-        const mf = fallback.filter(r => r.BuildingTypeId === 2).length;
-        const mfOccupied = fallback.filter(r => r.BuildingTypeId === 2 && r.Residents !== 'VACANT').length;
-        
-        return {
-          total: (occupied / total) * 100,
-          sfr: sfr > 0 ? (sfrOccupied / sfr) * 100 : 0,
-          mf: mf > 0 ? (mfOccupied / mf) * 100 : 0,
-          totalUnits: total,
-          occupiedUnits: occupied,
-          sfrUnits: sfr,
-          sfrOccupied,
-          mfUnits: mf,
-          mfOccupied
-        };
-      }
+      return {
+        total: 0, sfr: 0, mf: 0,
+        totalUnits: 0, occupiedUnits: 0,
+        sfrUnits: 0, sfrOccupied: 0,
+        mfUnits: 0, mfOccupied: 0
+      };
     }
+
+    // Define SF properties (townhomes and small properties)
+    const sfProperties = [
+      'Windsor Heights Townhomes',
+      'Court Yard at Rocky Creek',
+      'Chalet North Court', 
+      'Petersburg Townhomes',
+      'Kelly Drive Townhomes'
+    ];
+
+    const total = data.length;
+    const occupied = data.filter(r => r.Residents !== 'VACANT').length;
     
-    return data || {
-      total: 0, sfr: 0, mf: 0,
-      totalUnits: 0, occupiedUnits: 0,
-      sfrUnits: 0, sfrOccupied: 0,
-      mfUnits: 0, mfOccupied: 0
+    // Filter by property name for SF vs MF
+    const sfrData = data.filter(r => sfProperties.includes(r.PropertyName));
+    const mfData = data.filter(r => !sfProperties.includes(r.PropertyName));
+    
+    const sfrUnits = sfrData.length;
+    const sfrOccupied = sfrData.filter(r => r.Residents !== 'VACANT').length;
+    const mfUnits = mfData.length;
+    const mfOccupied = mfData.filter(r => r.Residents !== 'VACANT').length;
+    
+    return {
+      total: total > 0 ? (occupied / total) * 100 : 0,
+      sfr: sfrUnits > 0 ? (sfrOccupied / sfrUnits) * 100 : 0,
+      mf: mfUnits > 0 ? (mfOccupied / mfUnits) * 100 : 0,
+      totalUnits: total,
+      occupiedUnits: occupied,
+      sfrUnits,
+      sfrOccupied,
+      mfUnits,
+      mfOccupied
     };
   }
 
@@ -101,7 +111,7 @@ export class RentRollQueries {
   async getRentMetrics(): Promise<RentMetrics> {
     const { data, error } = await supabase
       .from('rent_roll')
-      .select('Residents, rent, BuildingTypeId')
+      .select('Residents, rent, PropertyName')
       .neq('Residents', 'VACANT')
       .gt('rent', 0);
     
@@ -112,12 +122,21 @@ export class RentRollQueries {
         averageRent: { total: 0, sfr: 0, mf: 0 }
       };
     }
+
+    // Define SF properties
+    const sfProperties = [
+      'Windsor Heights Townhomes',
+      'Court Yard at Rocky Creek',
+      'Chalet North Court', 
+      'Petersburg Townhomes',
+      'Kelly Drive Townhomes'
+    ];
     
     const totalRentRoll = data.reduce((sum, r) => sum + (r.rent || 0), 0);
     const avgTotal = data.length > 0 ? totalRentRoll / data.length : 0;
     
-    const sfrData = data.filter(r => r.BuildingTypeId === 1);
-    const mfData = data.filter(r => r.BuildingTypeId === 2);
+    const sfrData = data.filter(r => sfProperties.includes(r.PropertyName));
+    const mfData = data.filter(r => !sfProperties.includes(r.PropertyName));
     
     const avgSfr = sfrData.length > 0 
       ? sfrData.reduce((sum, r) => sum + r.rent, 0) / sfrData.length 
