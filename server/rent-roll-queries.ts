@@ -262,19 +262,56 @@ export class RentRollQueries {
 
   // 9. VACANCY DISTRIBUTION
   async getVacancyDistribution(): Promise<MarketMetrics['vacancyDistribution']> {
-    const { count: vacant } = await supabase
+    // Get all vacant units with their vacancy start dates
+    const { data: vacantUnits } = await supabase
       .from('rent_roll')
-      .select('*', { count: 'exact', head: true })
+      .select('PropertyName, UnitNumber, MoveOut')
       .eq('Residents', 'VACANT');
     
-    const totalVacant = vacant || 0;
+    if (!vacantUnits || vacantUnits.length === 0) {
+      return [
+        { range: '0-14 days', count: 0 },
+        { range: '15-30 days', count: 0 },
+        { range: '31-60 days', count: 0 },
+        { range: '61-90 days', count: 0 },
+        { range: '90+ days', count: 0 }
+      ];
+    }
     
-    // Typical distribution
+    const now = new Date();
+    const distribution = {
+      '0-14': 0,
+      '15-30': 0,
+      '31-60': 0,
+      '61-90': 0,
+      '90+': 0
+    };
+    
+    // Calculate days vacant for each unit
+    vacantUnits.forEach(unit => {
+      // Use MoveOut date if available, otherwise assume 30 days (conservative estimate)
+      const vacancyStart = unit.MoveOut ? new Date(unit.MoveOut) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const daysVacant = Math.floor((now.getTime() - vacancyStart.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysVacant <= 14) {
+        distribution['0-14']++;
+      } else if (daysVacant <= 30) {
+        distribution['15-30']++;
+      } else if (daysVacant <= 60) {
+        distribution['31-60']++;
+      } else if (daysVacant <= 90) {
+        distribution['61-90']++;
+      } else {
+        distribution['90+']++;
+      }
+    });
+    
     return [
-      { range: '0-30 days', count: Math.round(totalVacant * 0.45) },
-      { range: '31-60 days', count: Math.round(totalVacant * 0.30) },
-      { range: '61-90 days', count: Math.round(totalVacant * 0.15) },
-      { range: '90+ days', count: Math.round(totalVacant * 0.10) }
+      { range: '0-14 days', count: distribution['0-14'] },
+      { range: '15-30 days', count: distribution['15-30'] },
+      { range: '31-60 days', count: distribution['31-60'] },
+      { range: '61-90 days', count: distribution['61-90'] },
+      { range: '90+ days', count: distribution['90+'] }
     ];
   }
 

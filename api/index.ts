@@ -2,6 +2,10 @@ import express, { type Request, Response, NextFunction } from "express";
 import { createClient } from '@supabase/supabase-js';
 import { rentRollQueries } from '../server/rent-roll-queries.js';
 
+// Force dynamic rendering for all routes - prevent Vercel caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

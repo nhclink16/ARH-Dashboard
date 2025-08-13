@@ -72,7 +72,8 @@ export default function VacancyChart({ activeFilter }: VacancyChartProps) {
   const getChartData = (propertyType: PropertyType) => {
     // Get data for both SF and MF to show in combined chart
     const chartLabels = [
-      { key: '0-30 days', label: '0-30 days' },
+      { key: '0-14 days', label: '0-14 days' },
+      { key: '15-30 days', label: '15-30 days' },
       { key: '31-60 days', label: '31-60 days' },
       { key: '61-90 days', label: '61-90 days' },
       { key: '90+ days', label: '90+ days' }

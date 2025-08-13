@@ -149,9 +149,10 @@ function MetricCard({
 
 interface MetricsOverviewEnhancedProps {
   activeFilter: PropertyType;
+  activePeriod: 'YTD' | 'Month' | 'YoY';
 }
 
-export default function MetricsOverviewEnhanced({ activeFilter }: MetricsOverviewEnhancedProps) {
+export default function MetricsOverviewEnhanced({ activeFilter, activePeriod }: MetricsOverviewEnhancedProps) {
   const queryClient = useQueryClient();
   const [lastUpdated, setLastUpdated] = useState<string>('');
 
@@ -170,9 +171,9 @@ export default function MetricsOverviewEnhanced({ activeFilter }: MetricsOvervie
 
   // Fetch historical data for trends
   const { data: historicalData } = useQuery({
-    queryKey: ['historical-metrics', activeFilter],
+    queryKey: ['historical-metrics', activeFilter, activePeriod],
     queryFn: async () => {
-      const response = await fetch(`/api/metrics/historical?filter=${activeFilter}`);
+      const response = await fetch(`/api/metrics/historical?filter=${activeFilter}&period=${activePeriod}`);
       if (!response.ok) return null;
       return response.json();
     },
@@ -188,7 +189,7 @@ export default function MetricsOverviewEnhanced({ activeFilter }: MetricsOvervie
         value: 0,
         percentage: 0,
         direction: 'neutral',
-        period: 'MoM'
+        period: activePeriod === 'YoY' ? 'YoY' : activePeriod === 'YTD' ? 'YTD' : 'MoM'
       };
     }
     
@@ -209,26 +210,30 @@ export default function MetricsOverviewEnhanced({ activeFilter }: MetricsOvervie
     if (historicalData && historicalData[mappedMetric]) {
       const lastYear = historicalData[mappedMetric]?.lastYear;
       const lastMonth = historicalData[mappedMetric]?.lastMonth;
+      const ytdStart = historicalData[mappedMetric]?.ytdStart;
       
-      // Prefer YoY if available
-      if (lastYear && lastYear !== null) {
-        const percentageChange = ((current - lastYear) / lastYear) * 100;
-        return {
-          value: current - lastYear,
-          percentage: Math.abs(percentageChange),
-          direction: percentageChange > 0 ? 'up' : percentageChange < 0 ? 'down' : 'neutral',
-          period: 'YoY'
-        };
+      // Use the selected period
+      let compareValue = null;
+      let periodLabel = activePeriod;
+      
+      if (activePeriod === 'YoY' && lastYear !== null) {
+        compareValue = lastYear;
+        periodLabel = 'YoY';
+      } else if (activePeriod === 'YTD' && ytdStart !== null) {
+        compareValue = ytdStart;
+        periodLabel = 'YTD';
+      } else if (activePeriod === 'Month' && lastMonth !== null) {
+        compareValue = lastMonth;
+        periodLabel = 'MoM';
       }
       
-      // Fall back to MoM
-      if (lastMonth && lastMonth !== null) {
-        const percentageChange = ((current - lastMonth) / lastMonth) * 100;
+      if (compareValue !== null) {
+        const percentageChange = ((current - compareValue) / compareValue) * 100;
         return {
-          value: current - lastMonth,
+          value: current - compareValue,
           percentage: Math.abs(percentageChange),
           direction: percentageChange > 0 ? 'up' : percentageChange < 0 ? 'down' : 'neutral',
-          period: 'MoM'
+          period: periodLabel as 'YoY' | 'MoM' | 'YTD'
         };
       }
     }
