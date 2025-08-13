@@ -94,6 +94,13 @@ app.get("/api/metrics/operational/database", async (req, res) => {
     const filter = (req.query.filter as 'total' | 'sfr' | 'mf') || 'total';
     console.log(`Fetching operational metrics from database with filter: ${filter}`);
     const metrics = await rentRollQueries.getAllOperationalMetrics(filter);
+    
+    // Prevent caching to ensure fresh data
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    
     res.json({
       success: true,
       source: 'database',
