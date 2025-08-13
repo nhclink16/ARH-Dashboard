@@ -1,3 +1,4 @@
+// v1.1.0 - Updated metrics to 1478 units
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
