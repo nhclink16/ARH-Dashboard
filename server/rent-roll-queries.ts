@@ -2,9 +2,9 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL || 'https://zkkxcqdkctueopixutsf.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpra3hjcWRrY3R1ZW9waXh1dHNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNzc5ODgsImV4cCI6MjA2Mzk1Mzk4OH0.VVDpqTduvJbY8Om_OM9RnGIYiN_Cw-YE2m-hdbOu3vE';
 
-const supabase = createClient(supabaseUrl, supabaseKey!);
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export interface OccupancyMetrics {
   total: number;
@@ -58,13 +58,37 @@ export class RentRollQueries {
   
   // 1. OCCUPANCY METRICS
   async getOccupancyMetrics(): Promise<OccupancyMetrics> {
-    // Get property counts to determine SF vs MF
-    const { data: propertyData, error: propertyError } = await supabase
-      .from('rent_roll')
-      .select('PropertyName, Residents');
+    // Get ALL property data - handle Supabase 1000 record limit
+    const allData: any[] = [];
+    let offset = 0;
+    const limit = 1000;
     
-    if (!propertyData || propertyError) {
-      console.error('Error fetching occupancy metrics:', propertyError);
+    while (true) {
+      const { data, error, count } = await supabase
+        .from('rent_roll')
+        .select('PropertyName, Residents', { count: 'exact' })
+        .range(offset, offset + limit - 1);
+      
+      if (error) {
+        console.error('Error fetching occupancy metrics:', error);
+        break;
+      }
+      
+      if (data && data.length > 0) {
+        allData.push(...data);
+      }
+      
+      if (!data || data.length < limit) {
+        break;
+      }
+      
+      offset += limit;
+    }
+    
+    const propertyData = allData;
+    
+    if (!propertyData || propertyData.length === 0) {
+      console.error('No data fetched for occupancy metrics');
       return {
         total: 0, sfr: 0, mf: 0,
         totalUnits: 0, occupiedUnits: 0,
@@ -118,14 +142,39 @@ export class RentRollQueries {
 
   // 2. RENT METRICS  
   async getRentMetrics(): Promise<RentMetrics> {
-    const { data, error } = await supabase
-      .from('rent_roll')
-      .select('Residents, rent, PropertyName')
-      .neq('Residents', 'VACANT')
-      .gt('rent', 0);
+    // Get ALL rent data - handle Supabase 1000 record limit
+    const allData: any[] = [];
+    let offset = 0;
+    const limit = 1000;
     
-    if (!data || error) {
-      console.error('Error fetching rent metrics:', error);
+    while (true) {
+      const { data, error } = await supabase
+        .from('rent_roll')
+        .select('Residents, rent, PropertyName')
+        .neq('Residents', 'VACANT')
+        .gt('rent', 0)
+        .range(offset, offset + limit - 1);
+      
+      if (error) {
+        console.error('Error fetching rent metrics:', error);
+        break;
+      }
+      
+      if (data && data.length > 0) {
+        allData.push(...data);
+      }
+      
+      if (!data || data.length < limit) {
+        break;
+      }
+      
+      offset += limit;
+    }
+    
+    const data = allData;
+    
+    if (!data || data.length === 0) {
+      console.error('No rent data fetched');
       return {
         totalRentRoll: 0,
         averageRent: { total: 0, sfr: 0, mf: 0 }
