@@ -116,8 +116,10 @@ export default function VacancyChart({ activeFilter }: VacancyChartProps) {
       const mfData = vacancyData.filter(item => item.propertyType === 'mf');
       
       return {
-        days0to30: (sfrData.find(d => d.daysRange === '0-30 days')?.count || 0) + 
-                   (mfData.find(d => d.daysRange === '0-30 days')?.count || 0),
+        days0to14: (sfrData.find(d => d.daysRange === '0-14 days')?.count || 0) + 
+                   (mfData.find(d => d.daysRange === '0-14 days')?.count || 0),
+        days15to30: (sfrData.find(d => d.daysRange === '15-30 days')?.count || 0) + 
+                    (mfData.find(d => d.daysRange === '15-30 days')?.count || 0),
         days31to60: (sfrData.find(d => d.daysRange === '31-60 days')?.count || 0) + 
                     (mfData.find(d => d.daysRange === '31-60 days')?.count || 0),
         days61to90: (sfrData.find(d => d.daysRange === '61-90 days')?.count || 0) + 
@@ -131,7 +133,8 @@ export default function VacancyChart({ activeFilter }: VacancyChartProps) {
       const filteredData = vacancyData.filter(item => item.propertyType === filterType);
       
       return {
-        days0to30: filteredData.find(d => d.daysRange === '0-30 days')?.count || 0,
+        days0to14: filteredData.find(d => d.daysRange === '0-14 days')?.count || 0,
+        days15to30: filteredData.find(d => d.daysRange === '15-30 days')?.count || 0,
         days31to60: filteredData.find(d => d.daysRange === '31-60 days')?.count || 0,
         days61to90: filteredData.find(d => d.daysRange === '61-90 days')?.count || 0,
         days90plus: filteredData.find(d => d.daysRange === '90+ days')?.count || 0,
@@ -244,10 +247,14 @@ export default function VacancyChart({ activeFilter }: VacancyChartProps) {
       </div>
 
       {/* Chart Summary */}
-      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="text-center">
-          <p className="text-2xl font-semibold text-gray-900">{summaryData.days0to30}</p>
-          <p className="text-xs text-gray-500">0-30 days</p>
+          <p className="text-2xl font-semibold text-gray-900">{summaryData.days0to14}</p>
+          <p className="text-xs text-gray-500">0-14 days</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-semibold text-gray-900">{summaryData.days15to30}</p>
+          <p className="text-xs text-gray-500">15-30 days</p>
         </div>
         <div className="text-center">
           <p className="text-2xl font-semibold text-gray-900">{summaryData.days31to60}</p>
