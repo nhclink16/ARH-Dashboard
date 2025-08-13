@@ -221,19 +221,63 @@ export class RentRollQueries {
 
   // 3. MONTH-TO-MONTH LEASES
   async getMonthToMonthMetrics(): Promise<LeaseMetrics['monthToMonth']> {
-    // For now, we'll simulate this since lease term data isn't in rent_roll
-    // In production, this would query lease data
-    const { count: totalOccupied } = await supabase
-      .from('rent_roll')
-      .select('*', { count: 'exact', head: true })
-      .neq('Residents', 'VACANT');
+    // Get all occupied units with lease end dates
+    const allData: any[] = [];
+    let offset = 0;
+    const limit = 1000;
     
-    // Estimate: typically 15-20% are month-to-month
-    const estimatedMTM = Math.round((totalOccupied || 0) * 0.16);
+    while (true) {
+      const { data, error } = await supabase
+        .from('rent_roll')
+        .select('Start, End, Residents')
+        .neq('Residents', 'VACANT')
+        .range(offset, offset + limit - 1);
+      
+      if (error) {
+        console.error('Error fetching month-to-month metrics:', error);
+        break;
+      }
+      
+      if (data && data.length > 0) {
+        allData.push(...data);
+      }
+      
+      if (!data || data.length < limit) {
+        break;
+      }
+      
+      offset += limit;
+    }
+    
+    if (allData.length === 0) {
+      return { count: 0, percentage: 0 };
+    }
+    
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    // Count leases that are month-to-month:
+    // 1. End date is null or missing
+    // 2. End date is in the past (expired but tenant still there)
+    // 3. End date is within 30 days (about to expire)
+    let monthToMonthCount = 0;
+    
+    allData.forEach(unit => {
+      if (!unit.End) {
+        // No end date = month-to-month
+        monthToMonthCount++;
+      } else {
+        const endDate = new Date(unit.End);
+        if (endDate <= thirtyDaysFromNow) {
+          // Expired or expiring soon = month-to-month
+          monthToMonthCount++;
+        }
+      }
+    });
     
     return {
-      count: estimatedMTM,
-      percentage: totalOccupied ? (estimatedMTM / totalOccupied) * 100 : 0
+      count: monthToMonthCount,
+      percentage: allData.length > 0 ? (monthToMonthCount / allData.length) * 100 : 0
     };
   }
 
@@ -266,13 +310,57 @@ export class RentRollQueries {
     return validCount > 0 ? Math.round(totalMonths / validCount) : 18;
   }
 
-  // 5. EARLY TERMINATIONS
+  // 5. EARLY TERMINATIONS (Within 6 months)
   async getEarlyTerminations(): Promise<LeaseMetrics['earlyTerminations']> {
-    // This would need historical lease data
-    // For now, return industry average
+    // Get recent move-outs to check for early terminations
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    
+    // Get vacant units that had a move-out in the last 6 months
+    const { data: recentVacancies, error } = await supabase
+      .from('rent_roll')
+      .select('PropertyName, number, MoveOut, Start')
+      .eq('Residents', 'VACANT')
+      .gte('MoveOut', sixMonthsAgo.toISOString())
+      .not('MoveOut', 'is', null);
+    
+    if (error || !recentVacancies) {
+      console.error('Error fetching early terminations:', error);
+      // Return estimate based on industry average
+      return {
+        count: 3,
+        rate: 2.5
+      };
+    }
+    
+    // Count how many had less than 6 months occupancy
+    let earlyTerminationCount = 0;
+    
+    recentVacancies.forEach(unit => {
+      if (unit.Start && unit.MoveOut) {
+        const startDate = new Date(unit.Start);
+        const moveOutDate = new Date(unit.MoveOut);
+        const monthsOccupied = (moveOutDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+        
+        if (monthsOccupied < 6 && monthsOccupied > 0) {
+          earlyTerminationCount++;
+        }
+      }
+    });
+    
+    // Calculate rate based on total leases in the period
+    const { count: totalLeasesInPeriod } = await supabase
+      .from('rent_roll')
+      .select('*', { count: 'exact', head: true })
+      .gte('Start', sixMonthsAgo.toISOString());
+    
+    const rate = totalLeasesInPeriod && totalLeasesInPeriod > 0 
+      ? (earlyTerminationCount / totalLeasesInPeriod) * 100 
+      : 0;
+    
     return {
-      count: 3,
-      rate: 2.5
+      count: earlyTerminationCount,
+      rate: Math.round(rate * 10) / 10 // Round to 1 decimal
     };
   }
 
@@ -304,9 +392,37 @@ export class RentRollQueries {
 
   // 8. AVERAGE DAYS ON MARKET
   async getAverageDaysOnMarket(): Promise<number> {
-    // Would need vacancy history
-    // Industry average for your market
-    return 28;
+    // Get all currently vacant units with MoveOut dates
+    const { data: vacantUnits, error } = await supabase
+      .from('rent_roll')
+      .select('PropertyName, number, MoveOut')
+      .eq('Residents', 'VACANT')
+      .not('MoveOut', 'is', null);
+    
+    if (error || !vacantUnits || vacantUnits.length === 0) {
+      console.error('Error fetching days on market:', error);
+      return 28; // Default industry average
+    }
+    
+    const now = new Date();
+    let totalDays = 0;
+    let validCount = 0;
+    
+    vacantUnits.forEach(unit => {
+      if (unit.MoveOut) {
+        const moveOutDate = new Date(unit.MoveOut);
+        const daysVacant = Math.floor((now.getTime() - moveOutDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Only count reasonable values (0-365 days)
+        if (daysVacant >= 0 && daysVacant <= 365) {
+          totalDays += daysVacant;
+          validCount++;
+        }
+      }
+    });
+    
+    // Return average or default if no valid data
+    return validCount > 0 ? Math.round(totalDays / validCount) : 28;
   }
 
   // 9. VACANCY DISTRIBUTION
@@ -314,7 +430,7 @@ export class RentRollQueries {
     // Get all vacant units with their vacancy start dates
     const { data: vacantUnits } = await supabase
       .from('rent_roll')
-      .select('PropertyName, UnitNumber, MoveOut')
+      .select('PropertyName, number, MoveOut')
       .eq('Residents', 'VACANT');
     
     if (!vacantUnits || vacantUnits.length === 0) {
