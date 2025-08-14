@@ -9,19 +9,33 @@ export default async function handler(req: any, res: any) {
       {
         id: 1,
         propertyType: 'total',
+        daysRange: '0-14 days',
+        count: 0,
+        lastUpdated: new Date()
+      },
+      {
+        id: 2,
+        propertyType: 'total',
+        daysRange: '15-30 days',
+        count: 0,
+        lastUpdated: new Date()
+      },
+      {
+        id: 3,
+        propertyType: 'total',
         daysRange: '31-60 days', 
         count: 136,
         lastUpdated: new Date()
       },
       {
-        id: 2,
+        id: 4,
         propertyType: 'total',
         daysRange: '61-90 days',
         count: 68,
         lastUpdated: new Date()
       },
       {
-        id: 3,
+        id: 5,
         propertyType: 'total',
         daysRange: '90+ days',
         count: 23,

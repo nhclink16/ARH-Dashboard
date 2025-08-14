@@ -163,7 +163,7 @@ export default function MetricsOverviewEnhanced({ activeFilter, activePeriod }: 
       const response = await fetch(`/api/metrics/operational/database?filter=${activeFilter}`);
       if (!response.ok) throw new Error('Failed to fetch metrics');
       const result = await response.json();
-      setLastUpdated(result.data.lastUpdate || new Date().toISOString());
+      setLastUpdated(result.lastUpdated || result.data.lastUpdate || new Date().toISOString());
       return result.data;
     },
     refetchInterval: 60000, // Auto-refresh every minute
